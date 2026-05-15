@@ -60,6 +60,6 @@ PILLARS = ['macro', 'banking', 'scale', 'institutions']
 SECTOR_INDICATORS = {
     'healthcare': ['SH.XPD.CHEX.GD.ZS', 'SH.XPD.OOPC.CH.ZS', 'SH.MED.BEDS.ZS'],
     'consumer': ['NY.GDP.PCAP.PP.KD', 'SP.URB.TOTL.IN.ZS', 'SP.URB.GROW'],
-    'agribusiness': ['NV.AGR.TOTL.ZS', 'EA.PRD.AGRI.KD', 'AG.YLD.CREL.KG'],
+    'agribusiness': ['NV.AGR.TOTL.ZS', 'AG.LND.AGRI.K2', 'TX.VAL.AGRI.ZS.UN', 'AG.YLD.CREL.KG'],
     'education': ['SE.XPD.TOTL.GD.ZS', 'SE.TER.ENRR', 'SE.ADT.LITR.ZS'],
 }

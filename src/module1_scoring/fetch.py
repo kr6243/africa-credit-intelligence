@@ -16,6 +16,7 @@ from src.module1_scoring.config import (
     INDICATORS,
     IIAG_FEATURES,
     ISO3_TO_ISO2,
+    SECTOR_INDICATORS,
     START_YEAR,
     END_YEAR,
 )
@@ -83,8 +84,14 @@ if __name__ == '__main__':
     print(f'Fetching {len(unique_indicator_codes(INDICATORS))} WB indicators '
           f'for {len(COUNTRIES)} countries, {START_YEAR}-{END_YEAR}')
 
-    wb_codes = unique_indicator_codes(INDICATORS)
-    wb_df = fetch_wb(wb_codes, COUNTRIES, START_YEAR, END_YEAR)
+    # combine main indicators with sector overlay indicators (deduplicated)
+    main_codes = unique_indicator_codes(INDICATORS)
+    sector_codes = []
+    for codes in SECTOR_INDICATORS.values():
+        sector_codes.extend(codes)
+    all_codes = list(dict.fromkeys(main_codes + sector_codes))
+
+    wb_df = fetch_wb(all_codes, COUNTRIES, START_YEAR, END_YEAR)
     print(f'  WB: {len(wb_df):,} rows, '
           f'{wb_df["value"].isna().mean():.1%} missing')
 
