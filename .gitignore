@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# Mac OS
+.DS_Store
+
+# Data (kept locally, not committed)
+data/raw/*
+data/processed/*
+
+# But keep the folder structure so the repo shows the intended layout
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# VS Code
+.vscode/
+
+# Jupyter
+*.ipynb_checkpoints
