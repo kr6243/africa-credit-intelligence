@@ -81,15 +81,14 @@ def load_iiag(path, iiag_features, countries_iso3, start_year, end_year):
 
 
 if __name__ == '__main__':
-    print(f'Fetching {len(unique_indicator_codes(INDICATORS))} WB indicators '
-          f'for {len(COUNTRIES)} countries, {START_YEAR}-{END_YEAR}')
-
-    # combine main indicators with sector overlay indicators (deduplicated)
     main_codes = unique_indicator_codes(INDICATORS)
     sector_codes = []
     for codes in SECTOR_INDICATORS.values():
         sector_codes.extend(codes)
     all_codes = list(dict.fromkeys(main_codes + sector_codes))
+
+    print(f'Fetching {len(all_codes)} WB indicators '
+          f'for {len(COUNTRIES)} countries, {START_YEAR}-{END_YEAR}')
 
     wb_df = fetch_wb(all_codes, COUNTRIES, START_YEAR, END_YEAR)
     print(f'  WB: {len(wb_df):,} rows, '
