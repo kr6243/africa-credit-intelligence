@@ -28,3 +28,7 @@ data/processed/*
 
 # Jupyter
 *.ipynb_checkpoints
+
+# GCP service account key, NEVER commit
+gcp-key.json
+*.json.key
