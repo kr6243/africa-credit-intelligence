@@ -15,13 +15,22 @@ venv/
 # Mac OS
 .DS_Store
 
-# Data (kept locally, not committed)
+# Data: raw stays local, processed outputs are committed for the deployed dashboard
 data/raw/*
 data/processed/*
-
-# But keep the folder structure so the repo shows the intended layout
 !data/raw/.gitkeep
-!data/processed/.gitkeep
+
+# Module 1 outputs (committed)
+!data/processed/country_scores.csv
+!data/processed/sector_scores.csv
+!data/processed/features.csv
+!data/processed/sensitivity_rankings.csv
+
+# Module 2 outputs (committed)
+!data/processed/sentiment/
+!data/processed/sentiment/country_summary.csv
+!data/processed/sentiment/country_week.csv
+!data/processed/sentiment/scored_articles.csv
 
 # VS Code
 .vscode/
