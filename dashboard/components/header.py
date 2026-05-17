@@ -10,6 +10,7 @@ NAV_LINKS = [
     ('Overview', '/'),
     ('Country detail', '/country'),
     ('Sectors', '/sectors'),
+    ('Sentiment', '/sentiment'),
     ('Methodology', '/methodology'),
 ]
 

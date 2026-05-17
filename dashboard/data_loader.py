@@ -13,6 +13,21 @@ SECTOR_SCORES = pd.read_csv(PROCESSED_DIR / 'sector_scores.csv')
 FEATURES = pd.read_csv(PROCESSED_DIR / 'features.csv')
 SENSITIVITY = pd.read_csv(PROCESSED_DIR / 'sensitivity_rankings.csv')
 
+# Sentiment data from Module 2. Guarded because these files only exist after
+# fetch_gdelt -> score -> aggregate has run.
+SENTIMENT_DIR = PROCESSED_DIR / 'sentiment'
+
+try:
+    SENTIMENT_SUMMARY = pd.read_csv(SENTIMENT_DIR / 'country_summary.csv')
+    SENTIMENT_WEEKLY = pd.read_csv(SENTIMENT_DIR / 'country_week.csv')
+    SENTIMENT_ARTICLES = pd.read_csv(SENTIMENT_DIR / 'scored_articles.csv')
+    SENTIMENT_AVAILABLE = True
+except FileNotFoundError:
+    SENTIMENT_SUMMARY = pd.DataFrame()
+    SENTIMENT_WEEKLY = pd.DataFrame()
+    SENTIMENT_ARTICLES = pd.DataFrame()
+    SENTIMENT_AVAILABLE = False
+
 # Friendly country names for display (ISO3 codes are not user-friendly).
 COUNTRY_NAMES = {
     'NGA': 'Nigeria', 'GHA': 'Ghana', 'CIV': 'Cote d\'Ivoire', 'SEN': 'Senegal',

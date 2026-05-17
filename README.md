@@ -2,15 +2,15 @@
 
 A dashboard and analytical pipeline for evaluating country-sector opportunities in African private credit markets. Built to support investment thesis development for funds deploying SME and mid-cap debt across the continent.
 
-> Status: Module 1 complete. Modules 2 (NLP sentiment) and 3 (FX early warning) in development.
+> Status: Modules 1 and 2 complete. Module 3 (FX early warning) planned.
 
 ## What this is
 
 Three integrated modules in a single Dash app:
 
 1. **Country-sector opportunity scoring** across 27 African economies, combining macro stability, banking sector depth, market scale, and institutional quality with sector overlays for healthcare, consumer, agribusiness, and education.
-2. **NLP sentiment monitoring** on African financial news, central bank statements, and IMF country reports (in development).
-3. **Currency risk early warning model** for African FX against USD (in development).
+2. **News sentiment monitoring** on 5,000+ African financial news articles, scored by Anthropic's Claude with confidence-weighted aggregation into country-week sentiment time series and a 10-topic taxonomy.
+3. **Currency risk early warning model** for African FX against USD (planned).
 
 ## Why this matters for African private credit
 
@@ -31,16 +31,25 @@ Within each pillar, features are z-scored across the 27 countries and signed so 
 
 Sector overlays are produced separately from the country score so a user can see both country-level investability and sector-specific opportunity within a country. Agribusiness scoring was deliberately departed from a pure productivity composite (which inappropriately rewarded small economies with high-tech but irrelevant agriculture) to a four-indicator composite covering sector relevance, market size, commercialisation, and productivity.
 
+## Module 2: how the sentiment scoring works
+
+The sentiment pipeline pulls financial news articles from GDELT 2.0's Global Knowledge Graph via Google BigQuery, filtering for articles where the country appears as a primary location (within the first 100 characters of GDELT's V2Locations field) and where at least one financial GDELT theme is tagged (inflation, monetary, fiscal, banking, currency, and related categories). The 90-day window across 27 countries produced 5,305 articles from 1,514 unique sources.
+
+Each article is scored by Anthropic's Claude Sonnet 4.6 with a structured prompt framed around private credit deployment risk. The model returns sentiment (-1 to +1), confidence (0 to 1), topic (from a 10-category taxonomy spanning monetary, fiscal, banking, currency, political, trade, investment, infrastructure, commodities, and other), and a short key signal phrase. LLM-based scoring was chosen over classical NLP (FinBERT, CamemBERT) because it handles multilingual coverage natively, understands African macro context out of the box, and produces structured topic decomposition in a single call.
+
+Article scores aggregate to country-week sentiment using confidence weighting: `sum(sentiment × confidence) / sum(confidence)`. Articles below 0.30 confidence are dropped because Claude assigns low confidence to off-topic articles (where the country is mentioned but not the subject). Countries are labelled by sentiment quartile within the universe rather than absolute thresholds, since the distribution is structurally negative-skewed.
+
 ## Robustness
 
 The ranking was tested under 12 alternative methodological specifications (three coverage thresholds × four pillar weighting schemes). Kendall rank correlation against the baseline ranged 0.78-1.00, with all scenarios preserving at least 8 of the top 10. The top 4 countries (South Africa, Mauritius, Botswana, Cabo Verde) are stable across all specifications. Nigeria's top-10 ranking is contingent on the scale pillar weighting, which reflects a real tension for SME credit deployment in Nigeria rather than a methodological artefact.
 
 ## Repository structure
-src/module1_scoring/   Data fetch, cleaning, scoring, sensitivity analysis
+
+src/module1_scoring/   Country scoring: data fetch, cleaning, sensitivity, sector overlays
+src/module2_nlp/       Sentiment: BigQuery fetch, Claude scoring, aggregation
 dashboard/             Multi-page Dash app
 data/raw/              Local raw data (not committed)
-data/processed/        Cleaned features and scored outputs
-docs/                  Methodology write-up
+data/processed/        Cleaned features, country scores, sentiment series
 
 ## Running locally
 
@@ -54,12 +63,17 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Build the data and scoring pipeline
+# Module 1: country scoring pipeline
 python -m src.module1_scoring.fetch
 python -m src.module1_scoring.clean
 python -m src.module1_scoring.score
 python -m src.module1_scoring.sensitivity
 python -m src.module1_scoring.sector
+
+# Module 2: sentiment monitoring (requires gcp-key.json and ANTHROPIC_API_KEY in .env)
+python -m src.module2_nlp.fetch_gdelt
+python -m src.module2_nlp.score
+python -m src.module2_nlp.aggregate
 
 # Launch the dashboard
 python -m dashboard.app
@@ -75,6 +89,10 @@ The IIAG 2024 dataset is not committed to this repo. Download it from https://ii
 - The original Pillar 4 design used the Worldwide Governance Indicators, but the World Bank API endpoint serving that database returned malformed JSON during the build. The Mo Ibrahim IIAG is a stronger choice for an Africa-focused analysis regardless.
 - An SME-specific pillar was considered using Enterprise Survey indicators but coverage was too thin; the pillar was reconceived as Market Scale, which more directly answers the deployment question.
 - Sector overlays are coarse, especially for agribusiness where commercial-vs-subsistence breakdown isn't directly observable in the available indicators.
+- Sentiment scoring uses URL slugs and GDELT theme tags rather than full article body, which trades precision per article for scalability and avoidance of paywalls.
+- Smaller economies (Cabo Verde, Cote d'Ivoire, DR Congo) have thin article coverage in the 30-day window, producing noisier aggregate sentiment. The dashboard flags these as "low volume".
+- The strict country relevance filter (first 100 characters of V2Locations) still admits some off-topic articles. Cabo Verde's negative sentiment is partly driven by syndicated coverage of a hantavirus outbreak on a cruise ship tagged near its waters. Confidence weighting mitigates but does not eliminate this.
+- The sentiment scale is negative-skewed because the scoring prompt emphasises credit deployment risk; mean sentiment across the universe is around -0.07. Comparisons across countries are more meaningful than absolute levels.
 
 ## Author
 

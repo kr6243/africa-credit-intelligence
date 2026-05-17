@@ -17,7 +17,8 @@ layout = html.Div(
     children=[
         html.H1('Methodology', style=H1_STYLE),
         html.Div(
-            'How the country-sector opportunity score is constructed.',
+            'How the country-sector opportunity score and news sentiment '
+            'monitoring are constructed.',
             style=SUBTITLE_STYLE,
         ),
 
@@ -125,6 +126,109 @@ layout = html.Div(
             'metric because that would inappropriately reward small economies with '
             'high-tech but irrelevant agricultural sectors. Financial services '
             'overlay is covered by the banking pillar of the country score.',
+            style=_paragraph,
+        ),
+        html.H2('News sentiment monitoring (Module 2)', style=H2_STYLE),
+        html.P(
+            'Sentiment monitoring scores news articles about each country and '
+            'aggregates them into a country-week sentiment time series. The use '
+            'case is current-state monitoring: "what is the narrative on country '
+            'X right now, and is it shifting?" This complements the country score '
+            '(which is a structural assessment) with a tactical, time-varying '
+            'signal.',
+            style=_paragraph,
+        ),
+
+        html.H2('News data source', style=H2_STYLE),
+        html.P(
+            'Articles are pulled from GDELT 2.0\'s Global Knowledge Graph (GKG) '
+            'via Google BigQuery. The GDELT Doc API was initially considered but '
+            'has a rolling 90-day window and aggressive rate limiting; BigQuery '
+            'gives us access to the full GKG archive with no rate limits. The '
+            'query filters for articles where the country appears within the '
+            'first 100 characters of GDELT\'s V2Locations field (a strict '
+            'positional filter that excludes articles where the country is merely '
+            'mentioned in passing) and for articles tagged with at least one '
+            'financial GDELT theme (ECON_INFLATION, ECON_MONETARY, BANKING, '
+            'FISCAL, ECON_WORLDCURRENCIES, and others). Country names follow '
+            'GDELT\'s FIPS 10-4 convention rather than ISO 3166; DR Congo in '
+            'particular required a FIPS-code match to disambiguate from Republic '
+            'of the Congo and Chad.',
+            style=_paragraph,
+        ),
+
+        html.H2('Sentiment scoring', style=H2_STYLE),
+        html.P(
+            'Each article is scored by Anthropic\'s Claude Sonnet 4.6 model. The '
+            'prompt frames the model as "a financial analyst at a private credit '
+            'fund evaluating African markets" and asks for a JSON object with '
+            'four fields: sentiment (-1 to +1), confidence (0 to 1), topic '
+            '(from a 10-category taxonomy: monetary, fiscal, banking, currency, '
+            'political, trade, investment, infrastructure, commodities, other), '
+            'and a short key signal phrase. Claude scores from the article URL '
+            'slug and GDELT theme tags rather than full article body, which '
+            'accepts lower precision per article in exchange for scalability and '
+            'avoidance of paywall and bot-detection issues. Results are cached '
+            'by URL so reruns do not re-score the same article.',
+            style=_paragraph,
+        ),
+
+        html.P(
+            'A choice worth flagging: classical NLP approaches (FinBERT for '
+            'English, CamemBERT for French) were considered and rejected. '
+            'FinBERT is trained on US financial news and systematically '
+            'misclassifies African contexts; multilingual coverage would require '
+            'fine-tuning separate models per language; classification-only '
+            'output does not support topic decomposition. The LLM approach '
+            'handles multilingual coverage natively, understands African macro '
+            'context (the importance of distinguishing the two Congos, what '
+            'WAEMU means, what a eurobond restructuring implies), and produces '
+            'structured topic and quote fields in a single call.',
+            style=_paragraph,
+        ),
+
+        html.H2('Aggregation', style=H2_STYLE),
+        html.P(
+            'Article-level scores are rolled up to country-week and country-30-day '
+            'summaries. Aggregation is confidence-weighted: the mean sentiment per '
+            'group is computed as sum(sentiment × confidence) / sum(confidence), '
+            'so high-conviction scores carry more weight than uncertain ones. '
+            'Articles with confidence below 0.30 are excluded from aggregation '
+            'because Claude tends to assign low confidence to off-topic articles '
+            '(where the country is mentioned but not the subject). Countries are '
+            'labelled by sentiment quartile within the universe rather than '
+            'absolute thresholds, because the distribution is structurally '
+            'negative-skewed: African macro news in this period is more often '
+            'discussing risks than opportunities.',
+            style=_paragraph,
+        ),
+
+        html.H2('Sentiment limitations', style=H2_STYLE),
+        html.P(
+            'Smaller-economy coverage is thin. Cabo Verde, Cote d\'Ivoire, and '
+            'DR Congo have fewer than 50 articles in the 30-day window in this '
+            'sample, which gives noisy aggregate scores. The dashboard flags '
+            'these as "low volume" and treats their headline numbers with '
+            'caution. Off-topic articles also contaminate small-volume countries '
+            'disproportionately: Cabo Verde\'s sentiment in this period is '
+            'pulled down by syndicated coverage of a hantavirus outbreak on a '
+            'cruise ship in the Atlantic, where the ship was tagged near Cabo '
+            'Verde but the article had nothing to do with the country\'s '
+            'economy. Confidence weighting mitigates but does not eliminate '
+            'this. An extension would tighten the relevance filter further or '
+            'add a second-stage classifier that distinguishes "country is the '
+            'subject" from "country is mentioned".',
+            style=_paragraph,
+        ),
+
+        html.P(
+            'The sentiment scale is also asymmetric. Claude\'s prompt is framed '
+            'around credit deployment risk, so risk language is scored more '
+            'sharply than opportunity language. Mean sentiment across the '
+            'universe is around -0.07; very few countries cross into clearly '
+            'positive territory. Comparison across countries (Country A is in '
+            'the top quartile of the universe) is more meaningful than absolute '
+            'levels (Country A\'s sentiment is +0.05).',
             style=_paragraph,
         ),
     ],

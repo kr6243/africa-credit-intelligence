@@ -15,6 +15,7 @@ import json
 import os
 import time
 import pandas as pd
+from src.module2_nlp.config import COUNTRIES
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -26,28 +27,39 @@ PROCESSED_DIR = Path(__file__).resolve().parents[2] / 'data' / 'processed' / 'se
 ARTICLES_PATH = RAW_DIR / 'gdelt_articles.csv'
 CACHE_PATH = PROCESSED_DIR / 'scored_articles.csv'
 
-MODEL = 'claude-sonnet-4-5'
+MODEL = 'claude-sonnet-4-6'
 MAX_TOKENS = 400
 
-TOPICS = ['monetary', 'fiscal', 'banking', 'currency', 'political', 'other']
+TOPICS = [
+    'monetary',      # central bank policy, rates, money supply
+    'fiscal',        # government budget, debt, taxation
+    'banking',       # commercial banks, NPLs, credit, financial sector
+    'currency',      # FX rates, devaluation, capital controls
+    'political',     # elections, conflict, governance, policy uncertainty
+    'trade',         # imports/exports, trade balance, customs
+    'investment',    # FDI, factory openings, M&A, capital inflows
+    'infrastructure',# telecoms, transport, energy projects, logistics
+    'commodities',   # oil, copper, cocoa, agricultural prices
+    'other',         # genuinely uncategorisable
+]
 
 PROMPT_TEMPLATE = """You are a financial analyst at a private credit fund evaluating African \
-markets. Read the following news headline and snippet about {country_name}, then return a \
-JSON object with EXACTLY these four fields and no others:
+markets. Read the URL slug and GDELT theme tags for the following news article about {country_name}, \
+then return a JSON object with EXACTLY these four fields and no others:
 
 - sentiment: float from -1.0 to +1.0. Negative means bad for SME credit deployment in this \
 country (rising risk, deteriorating macro, political instability). Positive means good \
 (stability improving, growth, market opening). Zero means neutral or factual without \
 directional implication.
 - confidence: float from 0.0 to 1.0. How confident you are in this assessment.
-- topic: one of: monetary, fiscal, banking, currency, political, other.
-- key_quote: a short phrase (max 15 words) from the headline or snippet that drove your score.
-
+- topic: one of: monetary, fiscal, banking, currency, political, trade, investment, infrastructure, commodities, other. Use 'other' ONLY for articles that genuinely don't fit any of the above categories.
+- key_quote: a short phrase (max 15 words) describing the key signal (from URL slug or themes) that drove your score.
 Do NOT include reasoning, explanations, additional fields, preamble, or markdown fences. \
 Return ONLY the four-field JSON object.
 
-Headline: {title}
-Snippet: {snippet}
+Source: {source}
+URL: {url}
+GDELT themes: {themes}
 """
 
 
@@ -58,23 +70,31 @@ def _make_client():
     return Anthropic(api_key=api_key)
 
 
-def score_article(client, country_name, title, snippet):
+def score_article(client, country_name, source, url, themes):
     """Send one article to Claude and parse the JSON response."""
     prompt = PROMPT_TEMPLATE.format(
         country_name=country_name,
-        title=title or '',
-        snippet=snippet or '(no snippet available)',
+        source=source or '',
+        url=url or '',
+        themes=themes or '',
     )
 
-    try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            messages=[{'role': 'user', 'content': prompt}],
-        )
-        text = response.content[0].text.strip()
-    except Exception as e:
-        return {'error': f'{type(e).__name__}: {e}'}
+    # Retry up to 3 times for transient API errors (500s, timeouts)
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=MAX_TOKENS,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            text = response.content[0].text.strip()
+            break
+        except Exception as e:
+            last_err = e
+            time.sleep(2 ** attempt)  # 1s, 2s, 4s exponential backoff
+    else:
+        return {'error': f'{type(last_err).__name__}: {last_err}'}
 
     # Strip code fences if Claude added them despite instructions
     if text.startswith('```'):
@@ -107,8 +127,7 @@ def score_articles(articles_df, cache_df=None, max_per_run=None):
     """Score all unscored articles in articles_df. Writes incremental progress to cache."""
     client = _make_client()
     cached_urls = set(cache_df['url']) if cache_df is not None and not cache_df.empty else set()
-
-    to_score = articles_df[~articles_df['url'].isin(cached_urls)].copy()
+    to_score = articles_df[~articles_df['DocumentIdentifier'].isin(cached_urls)].copy()
     if max_per_run:
         to_score = to_score.head(max_per_run)
 
@@ -116,18 +135,28 @@ def score_articles(articles_df, cache_df=None, max_per_run=None):
 
     rows = []
     for i, art in to_score.iterrows():
+        # GDELT V2Themes is a semicolon-separated list of theme codes. Take first 8 themes
+        # so we don't overwhelm the prompt while keeping the most relevant tags.
+        themes_raw = art.get('V2Themes', '') or ''
+        themes_short = ';'.join(themes_raw.split(';')[:8])
+
+        # Map ISO3 to display name for the prompt
+        iso = art.get('country', '')
+        display_name = COUNTRIES.get(iso, (iso, iso))[0]
+        
         result = score_article(
             client,
-            country_name=art.get('country_name', ''),
-            title=art.get('title', ''),
-            snippet=art.get('snippet', '') if 'snippet' in art else '',
+            country_name=display_name,
+            source=art.get('SourceCommonName', ''),
+            url=art.get('DocumentIdentifier', ''),
+            themes=themes_short,
         )
         row = {
             'country': art['country'],
-            'url': art['url'],
-            'seendate': art.get('seendate', ''),
-            'domain': art.get('domain', ''),
-            'language': art.get('language', ''),
+            'url': art['DocumentIdentifier'],
+            'date': art.get('DATE', ''),
+            'domain': art.get('SourceCommonName', ''),
+            'themes': themes_short,
             **result,
         }
         rows.append(row)

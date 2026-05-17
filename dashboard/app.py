@@ -8,8 +8,7 @@ from dash import Dash, html, dcc, Input, Output
 from dashboard.components.header import make_header
 from dashboard.components.styling import COLORS, FONTS
 
-from dashboard.pages import overview, country, sectors, methodology
-
+from dashboard.pages import overview, country, sectors, sentiment, methodology
 
 app = Dash(__name__, suppress_callback_exceptions=True, title='Africa Credit Intelligence')
 
@@ -36,6 +35,8 @@ def render_page(pathname):
         return country.layout
     if pathname == '/sectors':
         return sectors.layout
+    if pathname == '/sentiment':
+        return sentiment.layout
     if pathname == '/methodology':
         return methodology.layout
     return overview.layout  # default = overview
@@ -44,6 +45,7 @@ def render_page(pathname):
 # register page-specific callbacks (each page module exposes a `register_callbacks` fn)
 country.register_callbacks(app)
 sectors.register_callbacks(app)
+sentiment.register_callbacks(app)
 
 
 if __name__ == '__main__':
