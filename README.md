@@ -3,6 +3,7 @@
 A dashboard and analytical pipeline for evaluating country-sector opportunities in African private credit markets. Built to support investment thesis development for funds deploying SME and mid-cap debt across the continent.
 
 > Status: Modules 1 and 2 complete. Module 3 (FX early warning) planned.
+> Live dashboard: https://africa-credit-intelligence.onrender.com
 
 ## What this is
 
