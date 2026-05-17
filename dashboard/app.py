@@ -11,6 +11,7 @@ from dashboard.components.styling import COLORS, FONTS
 from dashboard.pages import overview, country, sectors, sentiment, methodology
 
 app = Dash(__name__, suppress_callback_exceptions=True, title='Africa Credit Intelligence')
+server = app.server  # expose the underlying Flask server for gunicorn
 
 app.layout = html.Div(
     children=[
